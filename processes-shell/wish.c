@@ -136,6 +136,8 @@ int checkrflag(int rflag)
     {
     }
 }
+
+
 void rread(int mode)
 {
     int count;
