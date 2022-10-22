@@ -8,11 +8,11 @@
 char error_message[30] = "An error has occurred\n";
 size_t inpsize;
 FILE *file;
-char *inputs[SIZE];
+char *commands[SIZE];
 char **PATH;
 int PATHSZ = 2;
-char *line;
-
+char *command[SIZE];
+char *operation[SIZE]; 
 void process(int count)
 {
     int rc = fork();
@@ -31,10 +31,10 @@ void process(int count)
             {
                 strcat(command, "/");
             }
-            strcat(command, inputs[0]);
+            strcat(command, commands[0]);
             if (access(command, X_OK) == 0)
             {
-                execv(command, inputs);
+                execv(command, commands);
                 write(STDERR_FILENO, error_message, strlen(error_message));
                 exit(0);
             }
@@ -56,7 +56,7 @@ void process(int count)
 }
 void builtin(int count)
 {
-    if (strcmp(inputs[0], "exit") == 0)
+    if (strcmp(commands[0], "exit") == 0)
     {
         if (count >= 2)
         {
@@ -67,102 +67,98 @@ void builtin(int count)
             exit(0);
         }
     }
-    else if (strcmp(inputs[0], "cd") == 0)
+    else if (strcmp(commands[0], "cd") == 0)
     {
-        if (count == 1 || count > 2 || chdir(inputs[1]) != 0)
+        if (count == 1 || count > 2 || chdir(commands[1]) != 0)
         {
             write(STDERR_FILENO, error_message, strlen(error_message));
         }
     }
-    else if (strcmp(inputs[0], "path") == 0)
+    else if (strcmp(commands[0], "path") == 0)
     {
         PATHSZ = count;
         for (int i = 1; i < count; i++)
         {
             PATH = realloc(PATH, count * sizeof(char *));
-            int length = strlen(inputs[i]);
+            int length = strlen(commands[i]);
             PATH[i - 1] = malloc(sizeof(char) * length);
-            strcpy(PATH[i - 1], inputs[i]);
+            strcpy(PATH[i - 1], commands[i]);
         }
     }
     else
     {
-        redirexist(count);
-        // process(count);
+        // redirexist(count);
+        process(count);
     }
 }
 
-int checkredir(int numchar)
-{
-    int dir = 0;
-    for (int r = 0; r < numchar; r++)
-    {
-        if (line[r] == '>')
-        {
-            printf("X");
-            dir++;
-            if (dir > 1 || r == 0)
-            {
+int checkredir(char com[])
+{   
+    int n=0;
+    for(int i=0;i<strlen(com);i++){
+        if(com[i]=='>'){
+            n++;
+            if(n>1 || (n>=1 && (i==0||i==strlen(com)-2))){
                 return -1;
             }
+            
         }
     }
-    if (dir == 1)
-    {
-        return 1;
-    }
-    return 0;
+    return n;
 }
-int separate(char **line)
+int separate_commands(char *command[],char *cmd[],char *delim)
 {
     char *c;
     int count = 0;
 
-    while ((c = strsep(line, " \n\t\r>")) != NULL)
+    while ((c = strsep(cmd, delim)) != NULL)
     {
         if (strcmp(c, "") == 0)
         {
+            
             continue;
         }
-        inputs[count] = c;
+        command[count] = c;
+        printf("%s\n",command[count]);
         count++;
     }
-    inputs[count] = NULL;
+    command[count] = NULL;
     return count;
 }
-int checkrflag(int rflag)
-{
-    if (rflag == -1)
-    {
-    }
-}
-
-
 void rread(int mode)
 {
     int count;
-    int numchar;
-    int rflag;
+    char *line;
     if (mode == 1)
     {
-        if ((numchar = getline(&line, &inpsize, stdin)) != -1)
-        {
-            rflag = checkredir(numchar);
-            count = separate(&line);
+        if (getline(&line, &inpsize, stdin) != -1)
+        {   
+            count = separate_commands(commands,&line,"&");
+            for(int i=0;i<count;i++){
+                int redir=checkredir(commands[i]);
+                if(redir==-1){
+                  write(STDERR_FILENO, error_message, strlen(error_message));
+                  return;
+                }
+                int ndcount = separate_commands(command,&commands[i]," \n\t\r>");
+                if(redir == 1){
+                    printf("%d",ndcount);
+                }
+            }
             if (count == 0)
             {
                 return;
             }
-            builtin(count);
+            // builtin(count);
         }
     }
     else
     {
-        while ((numchar = getline(&line, &inpsize, file)) != -1)
+        while (getline(&line, &inpsize, file) != -1)
         {
-            rflag = checkredir(numchar);
-            count = separate(&line);
-            builtin(count);
+
+            // count = separate_commands(,&line," \n\t\r");
+            // builtin(count);
         }
     }
 }
@@ -189,22 +185,22 @@ int main(int argc, char *argv[])
         rread(1);
         // printf("%d",count);
         // while(count--){
-        //     printf("%s\n",inputs[count]);
+        //     printf("%s\n",commands[count]);
         // }
-        // argv_inputs[count]=NULL;
-        // if(strcmp(argv_inputs[0],"exit")==0){
+        // argv_commands[count]=NULL;
+        // if(strcmp(argv_commands[0],"exit")==0){
         //     exit(0);
-        // }else if(strcmp(argv_inputs[0],"cd")==0){
-        //         if(count>2 || chdir(argv_inputs[1])!=0){
+        // }else if(strcmp(argv_commands[0],"cd")==0){
+        //         if(count>2 || chdir(argv_commands[1])!=0){
         //              write(STDERR_FILENO, error_message, strlen(error_message));
         // }
         // }
 
         // int a= fork();
         // if(a==0){
-        //     if(strcmp(argv_inputs[0],"ls")==0){
+        //     if(strcmp(argv_commands[0],"ls")==0){
 
-        //         execvp(argv_inputs[0],argv_inputs);
+        //         execvp(argv_commands[0],argv_commands);
         //         printf("%s",error_message);
         //     }
         // }else{
@@ -215,4 +211,4 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-// abcd > def  ls xyz  cd a
+// ls -l -a > > x.txt
