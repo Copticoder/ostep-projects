@@ -104,7 +104,7 @@ void builtin(int count, char *commands[])
     }
 }
 
-int checkredir(char com[])
+int check_redir(char com[])
 {
     int n = 0;
     for (int i = 0; i < strlen(com); i++)
@@ -120,12 +120,12 @@ int checkredir(char com[])
     }
     return n;
 }
-int separate_commands(char *commandd[], char *cmd[], char *delim)
+int separate_commands(char *commandd[], char *cmd, char *delim)
 {
     char *c;
     int count = 0;
 
-    while ((c = strsep(cmd, delim)) != NULL)
+    while ((c = strsep(&cmd, delim)) != NULL)
     {
         if (strcmp(c, "") == 0)
         {
@@ -155,7 +155,7 @@ void make_spaces(char line[], char *newLine)
     newLine[c++] = '\0';
 }
 
-void separate_on_redir(char **sepCommand, char *fileName, int ndcount)
+int separate_on_redir(char **sepCommand, char *fileName, int ndcount)
 {
     for (int l = 0; l < ndcount; l++)
     {
@@ -163,8 +163,7 @@ void separate_on_redir(char **sepCommand, char *fileName, int ndcount)
         {
             if (l < ndcount - 2)
             {
-                write(STDERR_FILENO, error_message, strlen(error_message));
-                return;
+                return 0;
             }
             else
             {
@@ -175,26 +174,25 @@ void separate_on_redir(char **sepCommand, char *fileName, int ndcount)
         sepCommand[l] = malloc(sizeof(char) * strlen(command[l]));
         strcpy(sepCommand[l], command[l]);
     }
+    return 1;
 }
-void read_commands(char *line)
+void read_commands(char *line, int count)
 {
-    int count;
     char *newLine = (char *)malloc((strlen(line) + SIZE) * sizeof(char));
     make_spaces(line, newLine);
-
-    count = separate_commands(commands, &newLine, "&");
+    count = separate_commands(commands, newLine, "&");
     if(count==0){
-        write(STDERR_FILENO, error_message, strlen(error_message));
-
-        exit(0);
+        return ;
     }
     for (int i = 0; i < count; i++)
     {
         char **sepCommand;
         char fileName[SIZE];
-
-        redir = checkredir(commands[i]);
-        int ndcount = separate_commands(command, &commands[i], " \n\t\r\f\v");
+        redir = check_redir(commands[i]);
+        int ndcount = separate_commands(command, commands[i], " \n\t\r\f\v");
+        if(ndcount==0){
+            return;
+        }
         if (redir == -1)
         {
             write(STDERR_FILENO, error_message, strlen(error_message));
@@ -203,7 +201,10 @@ void read_commands(char *line)
         if (redir == 1)
         {
             sepCommand = malloc((ndcount) * sizeof(char *));
-            separate_on_redir(sepCommand, fileName, ndcount);
+            if(!separate_on_redir(sepCommand, fileName, ndcount)){
+                write(STDERR_FILENO, error_message, strlen(error_message));
+                return;
+            }
             process(sepCommand, ndcount - 1, fileName);
         }
         else
@@ -214,20 +215,20 @@ void read_commands(char *line)
 }
 void rread(int mode)
 {
+    int count;
     char *line;
     if (mode == 1)
     {
         if (getline(&line, &inpsize, stdin) != -1)
         {
-            printf("XXXXX");
-            read_commands(line);
+            read_commands(line, count);
         }
     }
     else
     {
         while (getline(&line, &inpsize, file) != -1)
         {
-            read_commands(line);
+            read_commands(line, count);
         }
     }
 }
