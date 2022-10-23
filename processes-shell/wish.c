@@ -3,7 +3,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
-
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #define SIZE 64
 char error_message[30] = "An error has occurred\n";
 size_t inpsize;
@@ -12,9 +14,8 @@ char *commands[SIZE];
 char **PATH;
 int PATHSZ = 2;
 char *command[SIZE];
-char *operation[SIZE]; 
 int redir;
-void process(int count)
+void process(char *commandd[], int count, char file[])
 {
     int rc = fork();
     if (rc == 0)
@@ -26,16 +27,26 @@ void process(int count)
         }
         for (int i = 0; i < PATHSZ - 1; i++)
         {
-            char *command = malloc(sizeof(char) * SIZE);
-            strcpy(command, PATH[i]);
-            if (command[strlen(command) - 1] != '/')
+            char *operation = malloc(sizeof(char) * SIZE);
+            strcpy(operation, PATH[i]);
+            if (operation[strlen(operation) - 1] != '/')
             {
-                strcat(command, "/");
+                strcat(operation, "/");
             }
-            strcat(command, commands[0]);
-            if (access(command, X_OK) == 0)
+            strcat(operation, commandd[0]);
+            if (access(operation, X_OK) == 0)
             {
-                execv(command, commands);
+                // child
+                if (file != NULL)
+                {
+                    FILE *fi = fopen(file, "w");
+                    int fd = open(file, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+
+                    dup2(fd, 1); // make stdout go to file
+                    dup2(fd, 2); // make stderr go to file - you may choose to not do this
+                    close(fd);   // fd no longer needed - the dup'ed handles are sufficient
+                }
+                execv(operation, commandd);
                 write(STDERR_FILENO, error_message, strlen(error_message));
                 exit(0);
             }
@@ -55,7 +66,7 @@ void process(int count)
         rc = (int)wait(NULL);
     }
 }
-void builtin(int count)
+void builtin(int count, char *commands[])
 {
     if (strcmp(commands[0], "exit") == 0)
     {
@@ -89,25 +100,27 @@ void builtin(int count)
     else
     {
         // redirexist(count);
-        process(count);
+        process(commands, count, NULL);
     }
 }
 
 int checkredir(char com[])
-{   
-    int n=0;
-    for(int i=0;i<strlen(com);i++){
-        if(com[i]=='>'){
+{
+    int n = 0;
+    for (int i = 0; i < strlen(com); i++)
+    {
+        if (com[i] == '>')
+        {
             n++;
-            if(n>1 || (n>=1 && (i==0||i==strlen(com)-2))){
+            if (n > 1 || (n >= 1 && (i == 1 || i == strlen(com) - 3)))
+            {
                 return -1;
             }
-            
         }
     }
     return n;
 }
-int separate_commands(char *commandd[],char *cmd[],char *delim)
+int separate_commands(char *commandd[], char *cmd[], char *delim)
 {
     char *c;
     int count = 0;
@@ -115,20 +128,23 @@ int separate_commands(char *commandd[],char *cmd[],char *delim)
     while ((c = strsep(cmd, delim)) != NULL)
     {
         if (strcmp(c, "") == 0)
-        { 
+        {
             continue;
         }
         commandd[count] = c;
-        printf("%s\n",commandd[count]);
+        // printf("%s\n",commandd[count]);
         count++;
     }
     command[count] = NULL;
     return count;
 }
-void make_spaces(char line[],char *newLine){
+void make_spaces(char line[], char *newLine)
+{
     int c = 0;
-    for(int i = 0; i < strlen(line); i++) {
-        if(line[i] == '>' || line[i] == '|') {
+    for (int i = 0; i < strlen(line); i++)
+    {
+        if (line[i] == '>' || line[i] == '|')
+        {
             newLine[c++] = ' ';
             newLine[c++] = line[i];
             newLine[c++] = ' ';
@@ -137,48 +153,81 @@ void make_spaces(char line[],char *newLine){
         newLine[c++] = line[i];
     }
     newLine[c++] = '\0';
+}
 
+void separate_on_redir(char **sepCommand, char *fileName, int ndcount)
+{
+    for (int l = 0; l < ndcount; l++)
+    {
+        if (strcmp(command[l], ">") == 0)
+        {
+            if (l < ndcount - 2)
+            {
+                write(STDERR_FILENO, error_message, strlen(error_message));
+                return;
+            }
+            else
+            {
+                strcpy(fileName, command[l + 1]);
+                break;
+            }
+        }
+        sepCommand[l] = malloc(sizeof(char) * strlen(command[l]));
+        strcpy(sepCommand[l], command[l]);
+    }
+}
+void read_commands(char *line)
+{
+    int count;
+    char *newLine = (char *)malloc((strlen(line) + SIZE) * sizeof(char));
+    make_spaces(line, newLine);
+
+    count = separate_commands(commands, &newLine, "&");
+    if(count==0){
+        write(STDERR_FILENO, error_message, strlen(error_message));
+
+        exit(0);
+    }
+    for (int i = 0; i < count; i++)
+    {
+        char **sepCommand;
+        char fileName[SIZE];
+
+        redir = checkredir(commands[i]);
+        int ndcount = separate_commands(command, &commands[i], " \n\t\r\f\v");
+        if (redir == -1)
+        {
+            write(STDERR_FILENO, error_message, strlen(error_message));
+            return;
+        }
+        if (redir == 1)
+        {
+            sepCommand = malloc((ndcount) * sizeof(char *));
+            separate_on_redir(sepCommand, fileName, ndcount);
+            process(sepCommand, ndcount - 1, fileName);
+        }
+        else
+        {
+            builtin(ndcount, command);
+        }
+    }
 }
 void rread(int mode)
 {
-    int count;
     char *line;
     if (mode == 1)
     {
         if (getline(&line, &inpsize, stdin) != -1)
-        {   
-            char *newLine = (char *) malloc ((strlen(line) + SIZE) * sizeof(char));
-            make_spaces(line,newLine);
-            
-            count = separate_commands(commands,&newLine,"&");
-            for(int i=0;i<count;i++){
-                redir=checkredir(commands[i]);
-                int ndcount = separate_commands(command,&commands[i]," \t\n\r");
-                if(redir==-1){
-                  write(STDERR_FILENO, error_message, strlen(error_message));
-                  return;
-                }
-                if(redir == 1){
-                    for(int l=0;l<ndcount;l++){
-                        if(strcmp(command[l],">")==0){
-                            if(l<ndcount-2){
-                                write(STDERR_FILENO, error_message, strlen(error_message));
-                                return;
-                            }
-                        }
-                    }
-                }
-            }
-            // }
-            // builtin(count);
+        {
+            printf("XXXXX");
+            read_commands(line);
         }
     }
     else
     {
         while (getline(&line, &inpsize, file) != -1)
         {
-            // count = separate_commands(,&line," \n\t\r");
-            // builtin(count);
+            read_commands(line);
         }
     }
 }
@@ -187,16 +236,21 @@ int main(int argc, char *argv[])
     PATH = malloc(sizeof(char *));
     PATH[0] = malloc(sizeof(char) * SIZE);
     strcpy(PATH[0], "/bin");
-    if (argc > 1)
+    if (argc == 2)
     {
         file = fopen(argv[1], "r");
         if (file == NULL)
         {
-            printf("FILE NOT FOUND");
-            exit(0);
+            write(STDERR_FILENO, error_message, strlen(error_message));
+            exit(1);
         }
         rread(0);
         return 0;
+    }
+    else if(argc>2)
+    {
+        write(STDERR_FILENO, error_message, strlen(error_message));
+        exit(1);
     }
     while (1)
     {
