@@ -15,47 +15,39 @@ char **PATH;
 int PATHSZ = 2;
 char *command[SIZE];
 int redir;
+void execute_command(char *operation, char *commandd[], char file[])
+{
+    if (access(operation, X_OK) == 0)
+    {
+        // child
+        if (file != NULL)
+        {
+            FILE *fi = fopen(file, "w");
+            int fd = open(file, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+
+            dup2(fd, 1); // make stdout go to file
+            dup2(fd, 2); // make stderr go to file - you may choose to not do this
+            close(fd);   // fd no longer needed - the dup'ed handles are sufficient
+        }
+        execv(operation, commandd);
+        printf("leh");
+    }
+}
 void process(char *commandd[], int count, char file[])
 {
     int rc = fork();
     if (rc == 0)
     {
-        if (PATHSZ == 1)
-        {
-            write(STDERR_FILENO, error_message, strlen(error_message));
-            exit(0);
-        }
+        execute_command(commandd[0],commandd,file);
         for (int i = 0; i < PATHSZ - 1; i++)
         {
             char *operation = malloc(sizeof(char) * SIZE);
             strcpy(operation, PATH[i]);
-            if (operation[strlen(operation) - 1] != '/')
-            {
-                strcat(operation, "/");
-            }
             strcat(operation, commandd[0]);
-            if (access(operation, X_OK) == 0)
-            {
-                // child
-                if (file != NULL)
-                {
-                    FILE *fi = fopen(file, "w");
-                    int fd = open(file, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-
-                    dup2(fd, 1); // make stdout go to file
-                    dup2(fd, 2); // make stderr go to file - you may choose to not do this
-                    close(fd);   // fd no longer needed - the dup'ed handles are sufficient
-                }
-                execv(operation, commandd);
-                write(STDERR_FILENO, error_message, strlen(error_message));
-                exit(0);
-            }
-            else
-            {
-                write(STDERR_FILENO, error_message, strlen(error_message));
-                exit(0);
-            }
+            execute_command(operation,commandd,file);
         }
+        write(STDERR_FILENO, error_message, strlen(error_message));
+        exit(0);
     }
     else if (rc < 0)
     {
@@ -93,8 +85,14 @@ void builtin(int count, char *commands[])
         {
             PATH = realloc(PATH, count * sizeof(char *));
             int length = strlen(commands[i]);
-            PATH[i - 1] = malloc(sizeof(char) * length);
-            strcpy(PATH[i - 1], commands[i]);
+
+            PATH[i - 1] = malloc(sizeof(char) * (length + 2));
+
+            strcat(PATH[i - 1], commands[i]);
+            if (commands[i][strlen(commands[i]) - 1] != '/')
+            {
+                strcat(PATH[i - 1], "/");
+            }
         }
     }
     else
@@ -181,8 +179,9 @@ void read_commands(char *line, int count)
     char *newLine = (char *)malloc((strlen(line) + SIZE) * sizeof(char));
     make_spaces(line, newLine);
     count = separate_commands(commands, newLine, "&");
-    if(count==0){
-        return ;
+    if (count == 0)
+    {
+        return;
     }
     for (int i = 0; i < count; i++)
     {
@@ -190,7 +189,8 @@ void read_commands(char *line, int count)
         char fileName[SIZE];
         redir = check_redir(commands[i]);
         int ndcount = separate_commands(command, commands[i], " \n\t\r\f\v");
-        if(ndcount==0){
+        if (ndcount == 0)
+        {
             return;
         }
         if (redir == -1)
@@ -201,7 +201,8 @@ void read_commands(char *line, int count)
         if (redir == 1)
         {
             sepCommand = malloc((ndcount) * sizeof(char *));
-            if(!separate_on_redir(sepCommand, fileName, ndcount)){
+            if (!separate_on_redir(sepCommand, fileName, ndcount))
+            {
                 write(STDERR_FILENO, error_message, strlen(error_message));
                 return;
             }
@@ -236,7 +237,7 @@ int main(int argc, char *argv[])
 {
     PATH = malloc(sizeof(char *));
     PATH[0] = malloc(sizeof(char) * SIZE);
-    strcpy(PATH[0], "/bin");
+    strcpy(PATH[0], "/bin/");
     if (argc == 2)
     {
         file = fopen(argv[1], "r");
@@ -248,7 +249,7 @@ int main(int argc, char *argv[])
         rread(0);
         return 0;
     }
-    else if(argc>2)
+    else if (argc > 2)
     {
         write(STDERR_FILENO, error_message, strlen(error_message));
         exit(1);
