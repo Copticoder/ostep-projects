@@ -13,6 +13,7 @@ char **PATH;
 int PATHSZ = 2;
 char *command[SIZE];
 char *operation[SIZE]; 
+int redir;
 void process(int count)
 {
     int rc = fork();
@@ -106,7 +107,7 @@ int checkredir(char com[])
     }
     return n;
 }
-int separate_commands(char *command[],char *cmd[],char *delim)
+int separate_commands(char *commandd[],char *cmd[],char *delim)
 {
     char *c;
     int count = 0;
@@ -114,16 +115,29 @@ int separate_commands(char *command[],char *cmd[],char *delim)
     while ((c = strsep(cmd, delim)) != NULL)
     {
         if (strcmp(c, "") == 0)
-        {
-            
+        { 
             continue;
         }
-        command[count] = c;
-        printf("%s\n",command[count]);
+        commandd[count] = c;
+        printf("%s\n",commandd[count]);
         count++;
     }
     command[count] = NULL;
     return count;
+}
+void make_spaces(char line[],char *newLine){
+    int c = 0;
+    for(int i = 0; i < strlen(line); i++) {
+        if(line[i] == '>' || line[i] == '|') {
+            newLine[c++] = ' ';
+            newLine[c++] = line[i];
+            newLine[c++] = ' ';
+            continue;
+        }
+        newLine[c++] = line[i];
+    }
+    newLine[c++] = '\0';
+
 }
 void rread(int mode)
 {
@@ -133,22 +147,29 @@ void rread(int mode)
     {
         if (getline(&line, &inpsize, stdin) != -1)
         {   
-            count = separate_commands(commands,&line,"&");
+            char *newLine = (char *) malloc ((strlen(line) + SIZE) * sizeof(char));
+            make_spaces(line,newLine);
+            
+            count = separate_commands(commands,&newLine,"&");
             for(int i=0;i<count;i++){
-                int redir=checkredir(commands[i]);
+                redir=checkredir(commands[i]);
+                int ndcount = separate_commands(command,&commands[i]," \t\n\r");
                 if(redir==-1){
                   write(STDERR_FILENO, error_message, strlen(error_message));
                   return;
                 }
-                int ndcount = separate_commands(command,&commands[i]," \n\t\r>");
                 if(redir == 1){
-                    printf("%d",ndcount);
+                    for(int l=0;l<ndcount;l++){
+                        if(strcmp(command[l],">")==0){
+                            if(l<ndcount-2){
+                                write(STDERR_FILENO, error_message, strlen(error_message));
+                                return;
+                            }
+                        }
+                    }
                 }
             }
-            if (count == 0)
-            {
-                return;
-            }
+            // }
             // builtin(count);
         }
     }
@@ -156,7 +177,6 @@ void rread(int mode)
     {
         while (getline(&line, &inpsize, file) != -1)
         {
-
             // count = separate_commands(,&line," \n\t\r");
             // builtin(count);
         }
