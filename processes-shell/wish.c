@@ -7,15 +7,14 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #define SIZE 64
+
 char error_message[30] = "An error has occurred\n";
 size_t inpsize;
 FILE *file;
-char *commands[SIZE];
 char **PATH;
 int PATHSZ = 2;
-char *command[SIZE];
-int redir;
-void execute_command(char *operation, char *commandd[], char file[])
+
+void execute_command(char *operation, char *command[], char file[])
 {
     if (access(operation, X_OK) == 0)
     {
@@ -29,22 +28,22 @@ void execute_command(char *operation, char *commandd[], char file[])
             dup2(fd, 2); // make stderr go to file - you may choose to not do this
             close(fd);   // fd no longer needed - the dup'ed handles are sufficient
         }
-        execv(operation, commandd);
+        execv(operation, command);
         printf("leh");
     }
 }
-void process(char *commandd[], int count, char file[])
+void process(char *command[], int count, char file[])
 {
     int rc = fork();
     if (rc == 0)
     {
-        execute_command(commandd[0],commandd,file);
+        execute_command(command[0], command, file);
         for (int i = 0; i < PATHSZ - 1; i++)
         {
             char *operation = malloc(sizeof(char) * SIZE);
             strcpy(operation, PATH[i]);
-            strcat(operation, commandd[0]);
-            execute_command(operation,commandd,file);
+            strcat(operation, command[0]);
+            execute_command(operation, command, file);
         }
         write(STDERR_FILENO, error_message, strlen(error_message));
         exit(0);
@@ -58,9 +57,9 @@ void process(char *commandd[], int count, char file[])
         rc = (int)wait(NULL);
     }
 }
-void builtin(int count, char *commands[])
+void builtin(int count, char *command[])
 {
-    if (strcmp(commands[0], "exit") == 0)
+    if (strcmp(command[0], "exit") == 0)
     {
         if (count >= 2)
         {
@@ -71,25 +70,25 @@ void builtin(int count, char *commands[])
             exit(0);
         }
     }
-    else if (strcmp(commands[0], "cd") == 0)
+    else if (strcmp(command[0], "cd") == 0)
     {
-        if (count == 1 || count > 2 || chdir(commands[1]) != 0)
+        if (count == 1 || count > 2 || chdir(command[1]) != 0)
         {
             write(STDERR_FILENO, error_message, strlen(error_message));
         }
     }
-    else if (strcmp(commands[0], "path") == 0)
+    else if (strcmp(command[0], "path") == 0)
     {
         PATHSZ = count;
         for (int i = 1; i < count; i++)
         {
             PATH = realloc(PATH, count * sizeof(char *));
-            int length = strlen(commands[i]);
+            int length = strlen(command[i]);
 
             PATH[i - 1] = malloc(sizeof(char) * (length + 2));
 
-            strcat(PATH[i - 1], commands[i]);
-            if (commands[i][strlen(commands[i]) - 1] != '/')
+            strcat(PATH[i - 1], command[i]);
+            if (command[i][strlen(command[i]) - 1] != '/')
             {
                 strcat(PATH[i - 1], "/");
             }
@@ -97,8 +96,7 @@ void builtin(int count, char *commands[])
     }
     else
     {
-        // redirexist(count);
-        process(commands, count, NULL);
+        process(command, count, NULL);
     }
 }
 
@@ -118,7 +116,7 @@ int check_redir(char com[])
     }
     return n;
 }
-int separate_commands(char *commandd[], char *cmd, char *delim)
+int separate_commands(char *input[], char *cmd, char *delim)
 {
     char *c;
     int count = 0;
@@ -129,11 +127,10 @@ int separate_commands(char *commandd[], char *cmd, char *delim)
         {
             continue;
         }
-        commandd[count] = c;
-        // printf("%s\n",commandd[count]);
+        input[count] = c;
         count++;
     }
-    command[count] = NULL;
+    input[count] = NULL;
     return count;
 }
 void make_spaces(char line[], char *newLine)
@@ -153,7 +150,7 @@ void make_spaces(char line[], char *newLine)
     newLine[c++] = '\0';
 }
 
-int separate_on_redir(char **sepCommand, char *fileName, int ndcount)
+int separate_on_redir(char **command, char **sepCommand, char *fileName, int ndcount)
 {
     for (int l = 0; l < ndcount; l++)
     {
@@ -174,8 +171,43 @@ int separate_on_redir(char **sepCommand, char *fileName, int ndcount)
     }
     return 1;
 }
+
+int commander(int redir, char **commands, char **command, int comnum)
+{
+    char **sepCommand;
+    char fileName[SIZE];
+    redir = check_redir(commands[comnum]);
+    int ndcount = separate_commands(command, commands[comnum], " \n\t\r\f\v");
+    if (ndcount == 0)
+    {
+        return 0;
+    }
+    if (redir == -1)
+    {
+        write(STDERR_FILENO, error_message, strlen(error_message));
+        return -1;
+    }
+    if (redir == 1)
+    {
+        sepCommand = malloc((ndcount) * sizeof(char *));
+        if (!separate_on_redir(command, sepCommand, fileName, ndcount))
+        {
+            write(STDERR_FILENO, error_message, strlen(error_message));
+            return -1;
+        }
+        process(sepCommand, ndcount - 1, fileName);
+    }
+    else
+    {
+        builtin(ndcount, command);
+    }
+}
+
 void read_commands(char *line, int count)
 {
+    char *command[SIZE];
+    char *commands[SIZE];
+    int redir;
     char *newLine = (char *)malloc((strlen(line) + SIZE) * sizeof(char));
     make_spaces(line, newLine);
     count = separate_commands(commands, newLine, "&");
@@ -183,35 +215,27 @@ void read_commands(char *line, int count)
     {
         return;
     }
+    if (count == 1)
+    {
+        commander(redir, commands, command, 0);
+        return;
+    }
+    pid_t child_pid[count];
+    int stat;
     for (int i = 0; i < count; i++)
     {
-        char **sepCommand;
-        char fileName[SIZE];
-        redir = check_redir(commands[i]);
-        int ndcount = separate_commands(command, commands[i], " \n\t\r\f\v");
-        if (ndcount == 0)
+        if ((child_pid[i] = fork()) == 0)
         {
-            return;
-        }
-        if (redir == -1)
-        {
-            write(STDERR_FILENO, error_message, strlen(error_message));
-            return;
-        }
-        if (redir == 1)
-        {
-            sepCommand = malloc((ndcount) * sizeof(char *));
-            if (!separate_on_redir(sepCommand, fileName, ndcount))
+            if (commander(redir, commands, command, i) == -1)
             {
-                write(STDERR_FILENO, error_message, strlen(error_message));
-                return;
+                exit(0);
             }
-            process(sepCommand, ndcount - 1, fileName);
+            exit(0);
         }
-        else
-        {
-            builtin(ndcount, command);
-        }
+    }
+    for (int i = 0; i < count; i++)
+    {
+        pid_t wpid = waitpid(child_pid[i], &stat, 0);
     }
 }
 void rread(int mode)
@@ -257,34 +281,9 @@ int main(int argc, char *argv[])
     while (1)
     {
 
-        printf("wish> ");
+        printf("7ambolash> ");
         rread(1);
-        // printf("%d",count);
-        // while(count--){
-        //     printf("%s\n",commands[count]);
-        // }
-        // argv_commands[count]=NULL;
-        // if(strcmp(argv_commands[0],"exit")==0){
-        //     exit(0);
-        // }else if(strcmp(argv_commands[0],"cd")==0){
-        //         if(count>2 || chdir(argv_commands[1])!=0){
-        //              write(STDERR_FILENO, error_message, strlen(error_message));
-        // }
-        // }
-
-        // int a= fork();
-        // if(a==0){
-        //     if(strcmp(argv_commands[0],"ls")==0){
-
-        //         execvp(argv_commands[0],argv_commands);
-        //         printf("%s",error_message);
-        //     }
-        // }else{
-        //   a= (int) wait(NULL);
-        // }
     }
 
     return 0;
 }
-
-// ls -l -a > > x.txt
