@@ -70,6 +70,8 @@ void builtin(int count, char *command[])
             exit(0);
         }
     }
+
+    
     else if (strcmp(command[0], "cd") == 0)
     {
         if (count == 1 || count > 2 || chdir(command[1]) != 0)
