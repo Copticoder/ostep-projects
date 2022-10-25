@@ -34,16 +34,28 @@ void execute_command(char *operation, char *command[], char file[])
 }
 void process(char *command[], int count, char file[])
 {
+    int rc = fork();
+    if (rc == 0)
+    {
         execute_command(command[0], command, file);
         for (int i = 0; i < PATHSZ - 1; i++)
         {
-            char *operation = calloc(SIZE,sizeof(char));
+            char *operation = malloc(sizeof(char) * SIZE);
             strcpy(operation, PATH[i]);
             strcat(operation, command[0]);
             execute_command(operation, command, file);
         }
         write(STDERR_FILENO, error_message, strlen(error_message));
         exit(0);
+    }
+    else if (rc < 0)
+    {
+        write(STDERR_FILENO, error_message, strlen(error_message));
+    }
+    else
+    {
+        rc = (int)wait(NULL);
+    }
 }
 void builtin(int count, char *command[])
 {
@@ -75,7 +87,7 @@ void builtin(int count, char *command[])
             PATH = realloc(PATH, count * sizeof(char *));
             int length = strlen(command[i]);
 
-            PATH[i - 1] = calloc(length + 2,sizeof(char));
+            PATH[i - 1] = malloc(sizeof(char) * (length + 2));
 
             strcat(PATH[i - 1], command[i]);
             if (command[i][strlen(command[i]) - 1] != '/')
@@ -156,7 +168,7 @@ int separate_on_redir(char **command, char **sepCommand, char *fileName, int ndc
                 break;
             }
         }
-        sepCommand[l] = calloc(strlen(command[l]),sizeof(char));
+        sepCommand[l] = malloc(sizeof(char) * strlen(command[l]));
         strcpy(sepCommand[l], command[l]);
     }
     return 1;
@@ -179,7 +191,7 @@ int commander(int redir, char **commands, char **command, int comnum)
     }
     if (redir == 1)
     {
-        sepCommand = calloc((ndcount), sizeof(char *));
+        sepCommand = malloc((ndcount) * sizeof(char *));
         if (!separate_on_redir(command, sepCommand, fileName, ndcount))
         {
             write(STDERR_FILENO, error_message, strlen(error_message));
@@ -198,7 +210,7 @@ void read_commands(char *line, int count)
     char *command[SIZE];
     char *commands[SIZE];
     int redir;
-    char *newLine = (char *)calloc((strlen(line) + SIZE), sizeof(char));
+    char *newLine = (char *)malloc((strlen(line) + SIZE) * sizeof(char));
     make_spaces(line, newLine);
     count = separate_commands(commands, newLine, "&");
     if (count == 0)
@@ -254,8 +266,8 @@ int rread(int mode)
 }
 int main(int argc, char *argv[])
 {
-    PATH = calloc(1,sizeof(char *));
-    PATH[0] = calloc(SIZE,sizeof(char));
+    PATH = malloc(sizeof(char *));
+    PATH[0] = malloc(sizeof(char) * SIZE);
     strcpy(PATH[0], "/bin/");
     if (argc == 2)
     {

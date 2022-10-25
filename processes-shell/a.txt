@@ -1,0 +1,19 @@
+total 88
+drwxrwxr-x  4 copticoder copticoder  4096 Oct 24 23:13 .
+drwxrwxr-x 19 copticoder copticoder  4096 Oct 24 15:26 ..
+-rw-rw-r--  1 copticoder copticoder   105 Oct 23 23:22 22.in
+-rw-rw-r--  1 copticoder copticoder    22 Oct 24 16:13 3.in
+-rw-rw-r--  1 copticoder copticoder     0 Oct 24 16:21 4.out
+-rw-rw-r--  1 copticoder copticoder    36 Oct 20 23:55 7.in
+-rw-rw-r--  1 copticoder copticoder     0 Oct 24 18:56 a.out
+-rw-rw-r--  1 copticoder copticoder     0 Oct 23 00:21 asdasd
+-rw-rw-r--  1 copticoder copticoder    77 Oct 23 18:51 asd.txt
+-rw-rw-r--  1 copticoder copticoder  1115 Oct 24 23:13 a.txt
+-rw-rw-r--  1 copticoder copticoder    79 Oct 23 19:17 n
+-rw-rw-r--  1 copticoder copticoder     0 Oct 23 20:28 output.9
+-rw-rw-r--  1 copticoder copticoder 12170 Oct 20 15:56 README.md
+drwxrwxr-x  3 copticoder copticoder  4096 Oct 10 15:07 tests
+drwxrwxr-x  2 copticoder copticoder  4096 Oct 24 16:22 tests-out
+-rwxrwxr-x  1 copticoder copticoder   124 Oct 10 15:07 test-wish.sh
+-rwxrwxr-x  1 copticoder copticoder 22288 Oct 24 23:13 wish
+-rw-rw-r--  1 copticoder copticoder  7380 Oct 24 23:13 wish.c

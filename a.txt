@@ -1,0 +1,23 @@
+total 84
+drwxrwxr-x 19 copticoder copticoder 4096 Oct 24 15:26 .
+drwxrwxr-x  5 copticoder copticoder 4096 Oct 24 15:27 ..
+-rw-rw-r--  1 copticoder copticoder    0 Oct 24 15:28 a.txt
+drwxrwxr-x  2 copticoder copticoder 4096 Oct 10 15:07 concurrency-mapreduce
+drwxrwxr-x  2 copticoder copticoder 4096 Oct 10 15:07 concurrency-pzip
+drwxrwxr-x  3 copticoder copticoder 4096 Oct 10 15:07 concurrency-webserver
+drwxrwxr-x  2 copticoder copticoder 4096 Oct 10 15:07 concurrency-xv6-threads
+drwxrwxr-x  2 copticoder copticoder 4096 Oct 10 15:07 filesystems-checker
+drwxrwxr-x  2 copticoder copticoder 4096 Oct 10 15:07 filesystems-distributed
+drwxrwxr-x  8 copticoder copticoder 4096 Oct 24 00:18 .git
+drwxrwxr-x  3 copticoder copticoder 4096 Oct 10 15:07 initial-kv
+drwxrwxr-x  2 copticoder copticoder 4096 Oct 10 15:07 initial-memcached
+drwxrwxr-x  3 copticoder copticoder 4096 Oct 10 15:07 initial-reverse
+drwxrwxr-x  6 copticoder copticoder 4096 Oct 10 17:38 initial-utilities
+drwxrwxr-x  3 copticoder copticoder 4096 Oct 10 15:07 initial-xv6
+drwxrwxr-x  2 copticoder copticoder 4096 Oct 10 15:07 initial-xv6-tracer
+-rw-rw-r--  1 copticoder copticoder 4061 Oct 10 15:07 INSTALL-xv6.md
+drwxrwxr-x  4 copticoder copticoder 4096 Oct 24 15:28 processes-shell
+-rw-rw-r--  1 copticoder copticoder 3222 Oct 10 15:07 README.md
+drwxrwxr-x  2 copticoder copticoder 4096 Oct 10 15:07 scheduling-xv6-lottery
+drwxrwxr-x  2 copticoder copticoder 4096 Oct 10 15:07 tester
+drwxrwxr-x  2 copticoder copticoder 4096 Oct 10 15:07 vm-xv6-intro
