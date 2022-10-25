@@ -238,7 +238,7 @@ void read_commands(char *line, int count)
         pid_t wpid = waitpid(child_pid[i], &stat, 0);
     }
 }
-void rread(int mode)
+int rread(int mode)
 {
     int count;
     char *line;
@@ -247,6 +247,8 @@ void rread(int mode)
         if (getline(&line, &inpsize, stdin) != -1)
         {
             read_commands(line, count);
+        }else if(feof(stdin)){
+            return -1;
         }
     }
     else
@@ -254,6 +256,9 @@ void rread(int mode)
         while (getline(&line, &inpsize, file) != -1)
         {
             read_commands(line, count);
+        }
+        if(feof(file)){
+            return -1;
         }
     }
 }
@@ -270,7 +275,9 @@ int main(int argc, char *argv[])
             write(STDERR_FILENO, error_message, strlen(error_message));
             exit(1);
         }
-        rread(0);
+        if(rread(0)==-1){
+            return 0;
+        };
         return 0;
     }
     else if (argc > 2)
@@ -282,7 +289,9 @@ int main(int argc, char *argv[])
     {
 
         printf("7ambolash> ");
-        rread(1);
+        if(rread(1)==-1){
+            break;
+        };
     }
 
     return 0;
