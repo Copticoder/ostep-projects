@@ -13,7 +13,7 @@ size_t inpsize;
 FILE *file;
 char **PATH;
 int PATHSZ = 2;
-
+char **sepCommand;
 void execute_command(char *operation, char *command[], char file[])
 {
     if (access(operation, X_OK) == 0)
@@ -29,7 +29,6 @@ void execute_command(char *operation, char *command[], char file[])
             close(fd);   // fd no longer needed - the dup'ed handles are sufficient
         }
         execv(operation, command);
-        printf("leh");
     }
 }
 void process(char *command[], int count, char file[])
@@ -176,7 +175,7 @@ int separate_on_redir(char **command, char **sepCommand, char *fileName, int ndc
 
 int commander(int redir, char **commands, char **command, int comnum)
 {
-    char **sepCommand;
+
     char fileName[SIZE];
     redir = check_redir(commands[comnum]);
     int ndcount = separate_commands(command, commands[comnum], " \n\t\r\f\v");
@@ -194,6 +193,7 @@ int commander(int redir, char **commands, char **command, int comnum)
         sepCommand = malloc((ndcount) * sizeof(char *));
         if (!separate_on_redir(command, sepCommand, fileName, ndcount))
         {
+            free(sepCommand);
             write(STDERR_FILENO, error_message, strlen(error_message));
             return -1;
         }
@@ -275,6 +275,7 @@ int main(int argc, char *argv[])
         if (file == NULL)
         {
             write(STDERR_FILENO, error_message, strlen(error_message));
+            free(PATH);
             exit(1);
         }
         if(rread(0)==-1){
@@ -295,6 +296,7 @@ int main(int argc, char *argv[])
             break;
         };
     }
-
+    free(PATH);
+    free(sepCommand);
     return 0;
 }
